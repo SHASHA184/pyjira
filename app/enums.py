@@ -2,17 +2,17 @@ import enum
 
 # Статус задачі
 class TaskStatus(str, enum.Enum):
-    TODO = 'TODO'
-    IN_PROGRESS = 'In progress'
-    DONE = 'Done'
+    TODO = 'todo'
+    IN_PROGRESS = 'in progress'
+    DONE = 'done'
 
 # Пріоритет задачі
 class TaskPriority(str, enum.Enum):
-    LOW = 'Low'
-    MEDIUM = 'Medium'
-    HIGH = 'High'
+    LOW = 'low'
+    MEDIUM = 'medium'
+    HIGH = 'high'
 
 # Роль користувача
 class UserRole(str, enum.Enum):
-    ADMIN = 'Admin'
-    USER = 'User'
+    ADMIN = 'admin'
+    USER = 'user'
