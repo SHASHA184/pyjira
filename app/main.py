@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 import uvicorn
-from routers import users
+from routers import users, tasks
 
 app = FastAPI()
 app.include_router(users.router)
+app.include_router(tasks.router)
 
 
 if __name__ == "__main__":

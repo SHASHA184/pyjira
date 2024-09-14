@@ -43,7 +43,8 @@ class TaskCreate(BaseModel):
     description: Optional[str]
     status: Optional[TaskStatus] = TaskStatus.TODO
     priority: Optional[TaskPriority] = TaskPriority.MEDIUM
-    assignee_ids: List[int]
+    creator_id: int
+    assignees: List[int]
 
 
 class TaskUpdate(BaseModel):
@@ -51,4 +52,5 @@ class TaskUpdate(BaseModel):
     description: Optional[str]
     status: Optional[TaskStatus]
     priority: Optional[TaskPriority]
-    assignee_ids: Optional[List[int]]
+    creator_id: Optional[int]
+    assignees: Optional[List[int]]

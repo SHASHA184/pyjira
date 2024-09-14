@@ -7,6 +7,7 @@ from security import hash_password, verify_password
 from enums import TaskStatus, TaskPriority, UserRole
 from schemas import UserCreate, UserLogin
 from loguru import logger
+from sqlalchemy.orm import selectinload
 
 # Таблиця для зв'язку Task і User (Many-to-Many)
 task_user_table = Table(
@@ -52,7 +53,7 @@ class User(Base):
         query = select(cls).where(cls.email == user.email)
         result = await db.execute(query)
         db_user = result.scalars().first()
-        
+
         if not db_user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -94,6 +95,71 @@ class Task(Base):
 
     creator = relationship("User", back_populates="created_tasks")
     assignees = relationship("User", secondary=task_user_table, back_populates="tasks")
+
+    @classmethod
+    async def create_task(cls, db: Session, task):
+        assignees_query = select(User).where(User.id.in_(task.assignees))
+        assignees_result = await db.execute(assignees_query)
+        assignees = assignees_result.scalars().all()
+
+        new_task = cls(
+            task_name=task.task_name,
+            description=task.description,
+            status=task.status,
+            priority=task.priority,
+            creator_id=task.creator_id,
+            assignees=assignees,
+        )
+
+        await new_task.save(db)
+
+        return new_task
+    
+    @classmethod
+    async def get_task_by_id(cls, db: Session, task_id: int):
+        query = select(cls).options(selectinload(cls.assignees)).where(cls.id == task_id)
+        result = await db.execute(query)
+        return result.scalars().first()
+    
+    @classmethod
+    async def get_tasks(cls, db: Session):
+        query = select(cls).options(selectinload(cls.assignees))
+        result = await db.execute(query)
+        return result.scalars().all()
+    
+
+    @classmethod
+    async def update_task(cls, db: Session, task_id: int, task):
+        task_query = select(cls).options(selectinload(cls.assignees)).where(cls.id == task_id)
+        task_result = await db.execute(task_query)
+        existing_task = task_result.scalars().first()
+
+        if not existing_task:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        # Use the Base update method to update the fields
+        await existing_task.update(
+            db,
+            task_name=task.task_name,
+            description=task.description,
+            status=task.status,
+            priority=task.priority,
+        )
+
+        # Update the assignees if provided
+        if task.assignees:
+            assignees_query = select(User).where(User.id.in_(task.assignees))
+            assignees_result = await db.execute(assignees_query)
+            assignees = assignees_result.scalars().all()
+
+            if len(assignees) != len(task.assignees):
+                raise HTTPException(status_code=400, detail="One or more assignees not found")
+
+            existing_task.assignees = assignees
+            await existing_task.save(db)
+
+        return existing_task
+
 
 
 # Відношення для користувача
