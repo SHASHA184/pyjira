@@ -52,5 +52,4 @@ class TaskUpdate(BaseModel):
     description: Optional[str]
     status: Optional[TaskStatus]
     priority: Optional[TaskPriority]
-    creator_id: Optional[int]
     assignees: Optional[List[int]]

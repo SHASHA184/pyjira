@@ -5,6 +5,13 @@ from fastapi import HTTPException, status
 from db_utils.base_model import Base
 from security import hash_password, verify_password
 from enums import TaskStatus, TaskPriority, UserRole
+import sys
+import pathlib
+
+sys.path.append(str(pathlib.Path(__file__).resolve(strict=True).parent.parent))
+
+
+from app.email_utils import send_email_task
 from schemas import UserCreate, UserLogin
 from loguru import logger
 from sqlalchemy.orm import selectinload
@@ -114,25 +121,35 @@ class Task(Base):
         await new_task.save(db)
 
         return new_task
-    
+
     @classmethod
     async def get_task_by_id(cls, db: Session, task_id: int):
-        query = select(cls).options(selectinload(cls.assignees)).where(cls.id == task_id)
+        query = (
+            select(cls).options(selectinload(cls.assignees)).where(cls.id == task_id)
+        )
         result = await db.execute(query)
         return result.scalars().first()
-    
+
     @classmethod
     async def get_tasks(cls, db: Session):
         query = select(cls).options(selectinload(cls.assignees))
         result = await db.execute(query)
         return result.scalars().all()
-    
 
     @classmethod
     async def update_task(cls, db: Session, task_id: int, task):
-        task_query = select(cls).options(selectinload(cls.assignees)).where(cls.id == task_id)
+        task_query = (
+            select(cls).options(selectinload(cls.assignees)).where(cls.id == task_id)
+        )
         task_result = await db.execute(task_query)
         existing_task = task_result.scalars().first()
+
+        if existing_task.status != task.status:
+            creator = await User.get_user_by_id(db, existing_task.creator_id)
+            creator_email = creator.email
+            subject = f"Task status changed for {existing_task.task_name}"
+            body = f"Task status has been changed from {existing_task.status} to {task.status}"
+            send_email_task.delay(creator_email, subject, body)
 
         if not existing_task:
             raise HTTPException(status_code=404, detail="Task not found")
@@ -153,13 +170,14 @@ class Task(Base):
             assignees = assignees_result.scalars().all()
 
             if len(assignees) != len(task.assignees):
-                raise HTTPException(status_code=400, detail="One or more assignees not found")
+                raise HTTPException(
+                    status_code=400, detail="One or more assignees not found"
+                )
 
             existing_task.assignees = assignees
             await existing_task.save(db)
 
         return existing_task
-
 
 
 # Відношення для користувача
