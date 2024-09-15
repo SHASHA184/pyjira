@@ -12,7 +12,7 @@ sys.path.append(str(pathlib.Path(__file__).resolve(strict=True).parent.parent))
 
 
 from app.email_utils import send_email_task
-from schemas import UserCreate, UserLogin
+from schemas import UserCreate, UserLogin, UserResponse
 from loguru import logger
 from sqlalchemy.orm import selectinload
 
@@ -57,7 +57,7 @@ class User(Base):
 
     @classmethod
     async def authenticate_user(cls, db: Session, user: UserLogin):
-        query = select(cls).where(cls.email == user.email)
+        query = select(cls).where(cls.username == user.username)
         result = await db.execute(query)
         db_user = result.scalars().first()
 
@@ -73,19 +73,19 @@ class User(Base):
                 detail="Invalid email or password",
             )
 
-        return True if db_user else False
-
-    @classmethod
-    async def get_user_by_email(cls, db: Session, email: str):
-        query = select(cls).where(cls.email == email)
-        result = await db.execute(query)
-        return result.scalars().first()
+        return UserResponse.model_validate(db_user)
 
     @classmethod
     async def get_user_by_id(cls, db: Session, user_id: int):
         query = select(cls).where(cls.id == user_id)
         result = await db.execute(query)
-        return result.scalars().first()
+        return UserResponse.model_validate(result.scalars().first())
+
+    @classmethod
+    async def get_user_by_username(cls, db: Session, username: str):
+        query = select(cls).where(cls.username == username)
+        result = await db.execute(query)
+        return UserResponse.model_validate(result.scalars().first())
 
 
 # Модель задачі

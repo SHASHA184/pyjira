@@ -16,3 +16,4 @@ class TaskPriority(str, enum.Enum):
 class UserRole(str, enum.Enum):
     ADMIN = 'admin'
     USER = 'user'
+    MANAGER = 'manager'

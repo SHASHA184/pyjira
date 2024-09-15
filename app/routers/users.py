@@ -19,8 +19,3 @@ async def get_user(user_id: int, db: Session = Depends(get_db)):
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return user
-
-@router.post("/login")
-async def login(user: UserLogin, db: Session = Depends(get_db)):
-    auth_user = await User.authenticate_user(db, user)
-    return auth_user

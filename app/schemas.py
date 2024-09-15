@@ -10,7 +10,7 @@ class UserResponse(BaseModel):
     role: UserRole
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class UserCreate(BaseModel):
@@ -21,8 +21,11 @@ class UserCreate(BaseModel):
 
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    username: str
     password: str
+
+    class Config:
+        from_attributes = True
 
 
 class TaskResponse(BaseModel):

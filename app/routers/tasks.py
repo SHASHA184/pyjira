@@ -14,7 +14,7 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
     return await Task.create_task(db, task)
 
 
-@router.get('/tasks/', response_model=list[TaskResponse])
+@router.get("/tasks", response_model=list[TaskResponse])
 async def get_tasks(db: Session = Depends(get_db)):
     return await Task.get_tasks(db)
 
