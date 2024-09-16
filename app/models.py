@@ -7,12 +7,20 @@ from security import hash_password, verify_password
 from enums import TaskStatus, TaskPriority, UserRole
 import sys
 import pathlib
+from typing import List, Optional
 
 sys.path.append(str(pathlib.Path(__file__).resolve(strict=True).parent.parent))
 
 
 from app.email_utils import send_email_task
-from schemas import UserCreate, UserLogin, UserResponse
+from schemas import (
+    UserCreate,
+    UserLogin,
+    UserResponse,
+    TaskCreate,
+    TaskUpdate,
+    TaskResponse,
+)
 from loguru import logger
 from sqlalchemy.orm import selectinload
 
@@ -36,7 +44,7 @@ class User(Base):
     role = Column(Enum(UserRole), default=UserRole.USER, nullable=False)
 
     @classmethod
-    async def create_user(cls, db: Session, user: UserCreate):
+    async def create_user(cls, db: Session, user: UserCreate) -> UserResponse:
         # Перевірка, чи існує користувач
         query = select(cls).where(cls.email == user.email)
         result = await db.execute(query)
@@ -56,36 +64,53 @@ class User(Base):
         return new_user
 
     @classmethod
-    async def authenticate_user(cls, db: Session, user: UserLogin):
+    async def authenticate_user(
+        cls, db: Session, user: UserLogin
+    ) -> Optional[UserResponse]:
         query = select(cls).where(cls.username == user.username)
         result = await db.execute(query)
         db_user = result.scalars().first()
 
         if not db_user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid email or password",
-            )
+            return None
 
         if not verify_password(user.password, db_user.password):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid email or password",
-            )
+            return None
 
         return UserResponse.model_validate(db_user)
 
     @classmethod
-    async def get_user_by_id(cls, db: Session, user_id: int):
+    async def get_user_by_id(cls, db: Session, user_id: int) -> Optional[UserResponse]:
         query = select(cls).where(cls.id == user_id)
         result = await db.execute(query)
-        return UserResponse.model_validate(result.scalars().first())
+        user = result.scalars().first()
+        if not user:
+            return None
+        return UserResponse.model_validate(user)
 
     @classmethod
-    async def get_user_by_username(cls, db: Session, username: str):
+    async def get_user_by_username(
+        cls, db: Session, username: str
+    ) -> Optional[UserResponse]:
         query = select(cls).where(cls.username == username)
         result = await db.execute(query)
-        return UserResponse.model_validate(result.scalars().first())
+        user = result.scalars().first()
+        if not user:
+            return None
+        return UserResponse.model_validate(user)
+
+    @classmethod
+    async def delete_user(cls, db: Session, user_id: int) -> Optional[UserResponse]:
+        query = select(cls).where(cls.id == user_id)
+        result = await db.execute(query)
+        user = result.scalars().first()
+
+        if not user:
+            return None
+
+        await user.delete(db)
+
+        return user
 
 
 # Модель задачі
@@ -93,7 +118,7 @@ class Task(Base):
     __tablename__ = "tasks"
 
     id = Column(Integer, primary_key=True, index=True)
-    task_name = Column(String(80), nullable=False)
+    name = Column(String(80), nullable=False)
     description = Column(String, nullable=True)
     status = Column(Enum(TaskStatus), default=TaskStatus.TODO, nullable=False)
     priority = Column(Enum(TaskPriority), default=TaskPriority.MEDIUM, nullable=False)
@@ -104,13 +129,13 @@ class Task(Base):
     assignees = relationship("User", secondary=task_user_table, back_populates="tasks")
 
     @classmethod
-    async def create_task(cls, db: Session, task):
+    async def create_task(cls, db: Session, task) -> TaskResponse:
         assignees_query = select(User).where(User.id.in_(task.assignees))
         assignees_result = await db.execute(assignees_query)
         assignees = assignees_result.scalars().all()
 
         new_task = cls(
-            task_name=task.task_name,
+            name=task.name,
             description=task.description,
             status=task.status,
             priority=task.priority,
@@ -120,36 +145,46 @@ class Task(Base):
 
         await new_task.save(db)
 
-        return new_task
+        return TaskResponse.model_validate(new_task)
 
     @classmethod
-    async def get_task_by_id(cls, db: Session, task_id: int):
+    async def get_task_by_id(cls, db: Session, task_id: int) -> Optional[TaskResponse]:
         query = (
             select(cls).options(selectinload(cls.assignees)).where(cls.id == task_id)
         )
         result = await db.execute(query)
-        return result.scalars().first()
+        task = result.scalars().first()
+        if not task:
+            return None
+        return TaskResponse.model_validate(task)
 
     @classmethod
-    async def get_tasks(cls, db: Session):
+    async def get_tasks(cls, db: Session) -> List[TaskResponse]:
         query = select(cls).options(selectinload(cls.assignees))
         result = await db.execute(query)
-        return result.scalars().all()
+        tasks = result.scalars().all()
+        return [TaskResponse.model_validate(task) for task in tasks]
 
     @classmethod
-    async def update_task(cls, db: Session, task_id: int, task):
+    async def get_tasks_by_creator(
+        cls, db: Session, creator_id: int
+    ) -> List[TaskResponse]:
+        query = (
+            select(cls)
+            .where(cls.creator_id == creator_id)
+            .options(selectinload(cls.assignees))
+        )
+        result = await db.execute(query)
+        tasks = result.scalars().all()
+        return [TaskResponse.model_validate(task) for task in tasks]
+
+    @classmethod
+    async def update_task(cls, db: Session, task_id: int, task) -> TaskResponse:
         task_query = (
             select(cls).options(selectinload(cls.assignees)).where(cls.id == task_id)
         )
         task_result = await db.execute(task_query)
         existing_task = task_result.scalars().first()
-
-        if existing_task.status != task.status:
-            creator = await User.get_user_by_id(db, existing_task.creator_id)
-            creator_email = creator.email
-            subject = f"Task status changed for {existing_task.task_name}"
-            body = f"Task status has been changed from {existing_task.status} to {task.status}"
-            send_email_task.delay(creator_email, subject, body)
 
         if not existing_task:
             raise HTTPException(status_code=404, detail="Task not found")
@@ -157,7 +192,7 @@ class Task(Base):
         # Use the Base update method to update the fields
         await existing_task.update(
             db,
-            task_name=task.task_name,
+            name=task.name,
             description=task.description,
             status=task.status,
             priority=task.priority,
@@ -177,7 +212,20 @@ class Task(Base):
             existing_task.assignees = assignees
             await existing_task.save(db)
 
-        return existing_task
+        return TaskResponse.model_validate(existing_task)
+
+    @classmethod
+    async def delete_task(cls, db: Session, task_id: int) -> Optional[TaskResponse]:
+        query = select(cls).where(cls.id == task_id)
+        result = await db.execute(query)
+        task = result.scalars().first()
+
+        if not task:
+            return None
+
+        await task.delete(db)
+
+        return task
 
 
 # Відношення для користувача

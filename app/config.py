@@ -8,6 +8,7 @@ DATABASE_URL = f"postgresql+asyncpg://{os.getenv('DEFAULT_USER')}:" \
     f"{os.getenv('DEFAULT_HOST')}:{os.getenv('DEFAULT_PORT')}/" \
     f"{os.getenv('DEFAULT_DB')}"
 
+USE_MAILING = os.getenv('USE_MAILING', 'False') == 'True'
 MAIL_USERNAME = os.getenv('MAIL_USERNAME')
 MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
 MAIL_FROM = os.getenv('MAIL_FROM')

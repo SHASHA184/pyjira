@@ -4,9 +4,11 @@ from db_utils.conn import get_db
 from models import User
 from schemas import UserCreate, UserResponse, UserLogin
 from loguru import logger
+from dependencies import role_checker
+from enums import UserRole
 
 # Initialize the APIRouter
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(role_checker(UserRole.ADMIN))])
 
 
 @router.post('/users/', response_model=UserResponse)
@@ -19,3 +21,10 @@ async def get_user(user_id: int, db: Session = Depends(get_db)):
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+@router.delete("/users/{user_id}")
+async def delete_user(user_id: int, db: Session = Depends(get_db)):
+    deleted = await User.delete_user(db, user_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "User deleted successfully"}

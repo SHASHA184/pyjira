@@ -30,7 +30,7 @@ class UserLogin(BaseModel):
 
 class TaskResponse(BaseModel):
     id: int
-    task_name: str
+    name: str
     description: Optional[str]
     status: TaskStatus
     priority: TaskPriority
@@ -38,21 +38,24 @@ class TaskResponse(BaseModel):
     assignees: List[UserResponse]
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class TaskCreate(BaseModel):
-    task_name: str
+    name: str
     description: Optional[str]
     status: Optional[TaskStatus] = TaskStatus.TODO
     priority: Optional[TaskPriority] = TaskPriority.MEDIUM
-    creator_id: int
+    creator_id: Optional[int] = None
     assignees: List[int]
 
 
 class TaskUpdate(BaseModel):
-    task_name: Optional[str]
-    description: Optional[str]
-    status: Optional[TaskStatus]
-    priority: Optional[TaskPriority]
-    assignees: Optional[List[int]]
+    name: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[TaskStatus] = None
+    priority: Optional[TaskPriority] = None
+    assignees: Optional[List[int]] = None
+
+    class Config:
+        from_attributes = True
