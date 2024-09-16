@@ -80,4 +80,7 @@ async def update_task(task_id: int, task: TaskUpdate, db: Session = Depends(get_
     dependencies=[Depends(role_checker(UserRole.ADMIN, UserRole.MANAGER))],
 )
 async def delete_task(task_id: int, db: Session = Depends(get_db)):
-    return await Task.delete_task(db, task_id)
+    deleted_task = await Task.delete_task(db, task_id)
+    if not deleted_task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return deleted_task
