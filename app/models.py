@@ -61,7 +61,20 @@ class User(Base):
 
         await new_user.save(db)
 
-        return new_user
+        return UserResponse.model_validate(new_user)
+
+    @classmethod
+    async def update_user(cls, db: Session, user_id: int, user) -> Optional[UserResponse]:
+        query = select(cls).where(cls.id == user_id)
+        result = await db.execute(query)
+        existing_user = result.scalars().first()
+
+        if not existing_user:
+            return None
+
+        await existing_user.update(db, **user.model_dump())
+
+        return UserResponse.model_validate(existing_user)
 
     @classmethod
     async def authenticate_user(

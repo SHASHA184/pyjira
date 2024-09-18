@@ -20,6 +20,15 @@ class UserCreate(BaseModel):
     role: Optional[UserRole] = UserRole.USER
 
 
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[UserRole] = None
+
+    class Config:
+        from_attributes = True
+
+
 class UserLogin(BaseModel):
     username: str
     password: str

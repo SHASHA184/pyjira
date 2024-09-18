@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from db_utils.conn import get_db
 from models import User
-from schemas import UserCreate, UserResponse, UserLogin
+from schemas import UserCreate, UserResponse, UserUpdate
 from loguru import logger
 from dependencies import role_checker
 from enums import UserRole
@@ -21,6 +21,13 @@ async def get_user(user_id: int, db: Session = Depends(get_db)):
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
     return user
+
+@router.put("/users/{user_id}", response_model=UserResponse, dependencies=[Depends(role_checker(UserRole.ADMIN))])
+async def update_user(user_id: int, user: UserUpdate, db: Session = Depends(get_db)):
+    updated = await User.update_user(db, user_id, user)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return updated
 
 @router.delete("/users/{user_id}", response_model=UserResponse, dependencies=[Depends(role_checker(UserRole.ADMIN))])
 async def delete_user(user_id: int, db: Session = Depends(get_db)):
