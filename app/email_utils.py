@@ -12,10 +12,6 @@ def send_email_task(email_to: str, subject: str, body: str):
     msg['From'] = MAIL_FROM
     msg['To'] = email_to
     msg['Subject'] = subject
-
-    print(f"Sending email to {email_to}")
-    print(f"Sender: {MAIL_FROM}")
-    print(f"Subject: {subject}")
     
     msg.attach(MIMEText(body, 'html'))
 

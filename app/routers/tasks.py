@@ -68,7 +68,7 @@ async def update_task(task_id: int, task: TaskUpdate, db: Session = Depends(get_
     if existing_task.status != updated_task.status and USE_MAILING is True:
         creator = await User.get_user_by_id(db, updated_task.creator_id)
         subject = f"Task {updated_task.name} status changed"
-        message = f"Task {updated_task.name} status changed to {updated_task.status}"
+        message = f"Task {updated_task.name} with id {updated_task.id} has changed status to {updated_task.status}"
         send_email_task(creator.email, subject, message)
 
     return updated_task
